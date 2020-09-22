@@ -126,14 +126,17 @@ type FSMConfig struct {
 
 	// Region is the region of the server embedding the FSM
 	Region string
+
+	EnableEventPublisher bool
 }
 
 // NewFSMPath is used to construct a new FSM with a blank state
 func NewFSM(config *FSMConfig) (*nomadFSM, error) {
 	// Create a state store
 	sconfig := &state.StateStoreConfig{
-		Logger: config.Logger,
-		Region: config.Region,
+		Logger:          config.Logger,
+		Region:          config.Region,
+		EnablePublisher: config.EnableEventPublisher,
 	}
 	state, err := state.NewStateStore(sconfig)
 	if err != nil {

@@ -1211,11 +1211,12 @@ func (s *Server) setupRaft() error {
 
 	// Create the FSM
 	fsmConfig := &FSMConfig{
-		EvalBroker: s.evalBroker,
-		Periodic:   s.periodicDispatcher,
-		Blocked:    s.blockedEvals,
-		Logger:     s.logger,
-		Region:     s.Region(),
+		EvalBroker:           s.evalBroker,
+		Periodic:             s.periodicDispatcher,
+		Blocked:              s.blockedEvals,
+		Logger:               s.logger,
+		Region:               s.Region(),
+		EnableEventPublisher: s.config.EnableEventPublisher,
 	}
 	var err error
 	s.fsm, err = NewFSM(fsmConfig)
