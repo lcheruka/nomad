@@ -15,6 +15,7 @@ import (
 	"github.com/hashicorp/nomad/nomad/mock"
 	"github.com/hashicorp/nomad/nomad/stream"
 	"github.com/hashicorp/nomad/nomad/structs"
+	"github.com/mitchellh/mapstructure"
 	"github.com/stretchr/testify/require"
 )
 
@@ -62,16 +63,13 @@ func TestEventStream(t *testing.T) {
 	require.NoError(t, err)
 
 	node := mock.Node()
-	publisher.Publish(uint64(1), []stream.Event{{Topic: "test", Payload: node.ID}})
+	publisher.Publish(uint64(1), []stream.Event{{Topic: "test", Payload: node}})
 
 	// send req
 	encoder := codec.NewEncoder(p1, structs.MsgpackHandle)
 	require.Nil(t, encoder.Encode(req))
 
 	timeout := time.After(3 * time.Second)
-
-	expected := node.ID
-	received := ""
 OUTER:
 	for {
 		select {
@@ -86,13 +84,27 @@ OUTER:
 
 			var frame sframer.StreamFrame
 			err := json.Unmarshal(msg.Payload, &frame)
-
 			require.NoError(t, err)
-			received += string(frame.Data)
-			if strings.Contains(received, expected) {
-				require.Nil(t, p2.Close())
-				break OUTER
+
+			if frame.IsHeartbeat() {
+				continue
 			}
+
+			var events []stream.Event
+			err = json.Unmarshal(frame.Data, &events)
+			require.NoError(t, err)
+			require.Len(t, events, 1)
+
+			var out structs.Node
+			cfg := &mapstructure.DecoderConfig{
+				Metadata: nil,
+				Result:   &out,
+			}
+			dec, err := mapstructure.NewDecoder(cfg)
+			dec.Decode(events[0].Payload)
+			require.NoError(t, err)
+			require.Equal(t, node.ID, out.ID)
+			break OUTER
 		}
 	}
 }

@@ -21,10 +21,6 @@ const (
 // closed. The client should Unsubscribe, then re-Subscribe.
 var ErrSubscriptionClosed = errors.New("subscription closed by server, client should resubscribe")
 
-// type Subscriber struct {
-// 	logger hclog.Logger
-// }
-
 type Subscription struct {
 	// state is accessed atomically 0 means open, 1 means closed with reload
 	state uint32

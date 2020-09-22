@@ -123,7 +123,7 @@ func (e *Event) stream(conn io.ReadWriteCloser) {
 				}
 				break LOOP
 			}
-			if err := framer.Send("", "stream", b, initialOffset); err != nil {
+			if err := framer.SendFull("", "stream", b, initialOffset); err != nil {
 				select {
 				case errCh <- err:
 				case <-ctx.Done():

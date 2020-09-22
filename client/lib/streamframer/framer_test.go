@@ -9,6 +9,7 @@ import (
 
 	"github.com/hashicorp/nomad/testutil"
 	"github.com/kr/pretty"
+	"github.com/stretchr/testify/require"
 )
 
 // This test checks, that even if the frame size has not been hit, a flush will
@@ -120,6 +121,87 @@ func TestStreamFramer_Batch(t *testing.T) {
 	// Ensure we get data
 	select {
 	case <-resultCh:
+	case <-time.After(10 * time.Duration(testutil.TestMultiplier()) * bWindow):
+		t.Fatalf("Did not receive data after batch size reached")
+	}
+
+	// Shutdown
+	sf.Destroy()
+
+	select {
+	case <-sf.ExitCh():
+	case <-time.After(10 * time.Duration(testutil.TestMultiplier()) * hRate):
+		t.Fatalf("exit channel should close")
+	}
+
+	if f, ok := <-frames; ok {
+		t.Fatalf("out channel should be closed. recv: %s", pretty.Sprint(f))
+	}
+}
+
+func TestStreamFramer_SendFull(t *testing.T) {
+	// Ensure the batch window doesn't get hit
+	hRate, bWindow := 100*time.Millisecond, 500*time.Millisecond
+
+	// Create the stream framer
+	frames := make(chan *StreamFrame, 10)
+	sf := NewStreamFramer(frames, hRate, bWindow, 3)
+	sf.Run()
+
+	f := "foo"
+	fe := "bar"
+	d := []byte{0xa, 0xb, 0xc}
+	o := int64(10)
+
+	// Start the reader
+	resultCh := make(chan []byte)
+	go func() {
+		for {
+			frame := <-frames
+			if frame.IsHeartbeat() {
+				continue
+			}
+
+			if frame.Data != nil {
+				resultCh <- frame.Data
+			}
+		}
+	}()
+
+	// Write only 1 byte so we do not hit the frame size
+	if err := sf.SendFull(f, fe, d[:1], o); err != nil {
+		t.Fatalf("Send() failed %v", err)
+	}
+
+	// Ensure we didn't get any data
+	select {
+	case result := <-resultCh:
+		require.Equal(t, []byte{d[0]}, result)
+	case <-time.After(10 * time.Duration(testutil.TestMultiplier()) * bWindow):
+		t.Fatalf("did not get data before frame size reached")
+	}
+
+	// Write the rest so we hit the frame size
+	if err := sf.SendFull(f, fe, d[1:], o); err != nil {
+		t.Fatalf("Send() failed %v", err)
+	}
+
+	// Ensure we get data
+	select {
+	case result := <-resultCh:
+		require.Equal(t, d[1:], result)
+	case <-time.After(10 * time.Duration(testutil.TestMultiplier()) * bWindow):
+		t.Fatalf("Did not receive data after batch size reached")
+	}
+
+	large := []byte("larger than frame size")
+	// Write with data larger than frame size
+	require.NoError(t, sf.SendFull(f, fe, large, o))
+
+	// Ensure full data sent in frame
+	select {
+	case result := <-resultCh:
+		require.Equal(t, large, result)
 	case <-time.After(10 * time.Duration(testutil.TestMultiplier()) * bWindow):
 		t.Fatalf("Did not receive data after batch size reached")
 	}
