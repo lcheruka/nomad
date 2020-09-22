@@ -110,6 +110,11 @@ func (e *Event) stream(conn io.ReadWriteCloser) {
 				break LOOP
 			}
 
+			// Continue if there are no events
+			if events == nil {
+				continue
+			}
+
 			b, err := json.Marshal(events)
 			if err != nil {
 				select {

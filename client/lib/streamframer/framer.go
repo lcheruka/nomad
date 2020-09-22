@@ -306,3 +306,65 @@ func (s *StreamFramer) Send(file, fileEvent string, data []byte, offset int64) e
 
 	return nil
 }
+
+// Send creates and sends a StreamFrame based on the passed parameters. An error
+// is returned if the run routine hasn't run or encountered an error. Send is
+// asynchronous and does not block for the data to be transferred.
+func (s *StreamFramer) Sendf(file, fileEvent string, data []byte, offset int64) error {
+	s.l.Lock()
+	defer s.l.Unlock()
+	// If we are not running, return the error that caused us to not run or
+	// indicated that it was never started.
+	if !s.running {
+		return fmt.Errorf("StreamFramer not running")
+	}
+
+	// Check if not mergeable
+	if !s.f.IsCleared() && (s.f.File != file || s.f.FileEvent != fileEvent) {
+		// Flush the old frame
+		s.send()
+	}
+
+	// Store the new data as the current frame.
+	if s.f.IsCleared() {
+		s.f.Offset = offset
+		s.f.File = file
+		s.f.FileEvent = fileEvent
+	}
+
+	// Write the data to the buffer
+	s.data.Write(data)
+
+	// Handle the delete case in which there is no data
+	force := s.data.Len() == 0 && s.f.FileEvent != ""
+
+	// Flush till we are under the max frame size
+	for s.data.Len() >= s.frameSize || force {
+		// Clear since are flushing the frame and capturing the file event.
+		// Subsequent data frames will be flushed based on the data size alone
+		// since they share the same fileevent.
+		if force {
+			force = false
+		}
+
+		// Ensure s.out has not already been closed by Destroy
+		select {
+		case <-s.exitCh:
+			return nil
+		default:
+		}
+
+		// Create a new frame to send it
+		s.f.Data = s.readData()
+		select {
+		case s.out <- s.f.Copy():
+		case <-s.exitCh:
+			return nil
+		}
+
+		// Update the offset
+		s.f.Offset += int64(len(s.f.Data))
+	}
+
+	return nil
+}

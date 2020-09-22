@@ -109,7 +109,7 @@ func NewStateStore(config *StateStoreConfig) (*StateStore, error) {
 
 func (s *StateStore) EventPublisher() (*stream.EventPublisher, error) {
 	if s.db.publisher == nil {
-		return nil, fmt.Errorf("StateStore not configured to publish events")
+		return nil, fmt.Errorf("EventPublisher not configured")
 	}
 	return s.db.publisher, nil
 }
