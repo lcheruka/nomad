@@ -22,7 +22,9 @@ import (
 func TestEventStream(t *testing.T) {
 	t.Parallel()
 
-	s1, cleanupS1 := TestServer(t, nil)
+	s1, cleanupS1 := TestServer(t, func(c *Config) {
+		c.EnableEventPublisher = true
+	})
 	defer cleanupS1()
 
 	req := structs.EventStreamRequest{
