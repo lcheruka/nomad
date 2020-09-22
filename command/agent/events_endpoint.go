@@ -172,5 +172,5 @@ func parseTopic(topic string) (string, string, error) {
 }
 
 func allTopics() map[stream.Topic][]string {
-	return map[stream.Topic][]string{"*": []string{"*"}}
+	return map[stream.Topic][]string{"*": {"*"}}
 }
