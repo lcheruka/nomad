@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"testing"
 
+	"github.com/hashicorp/nomad/nomad/stream"
 	"github.com/stretchr/testify/require"
 )
 
@@ -12,20 +13,20 @@ func TestEventStream_QueryParse(t *testing.T) {
 	cases := []struct {
 		desc    string
 		query   string
-		want    map[string][]string
+		want    map[stream.Topic][]string
 		wantErr bool
 	}{
 		{
 			desc:  "all topics and keys specified",
 			query: "?topic=*:*",
-			want: map[string][]string{
+			want: map[stream.Topic][]string{
 				"*": []string{"*"},
 			},
 		},
 		{
 			desc:  "all topics and keys inferred",
 			query: "",
-			want: map[string][]string{
+			want: map[stream.Topic][]string{
 				"*": []string{"*"},
 			},
 		},
@@ -42,14 +43,14 @@ func TestEventStream_QueryParse(t *testing.T) {
 		{
 			desc:  "single topic and key",
 			query: "?topic=NodeDrain:*",
-			want: map[string][]string{
+			want: map[stream.Topic][]string{
 				"NodeDrain": []string{"*"},
 			},
 		},
 		{
 			desc:  "single topic multiple keys",
 			query: "?topic=NodeDrain:*&topic=NodeDrain:3caace09-f1f4-4d23-b37a-9ab5eb75069d",
-			want: map[string][]string{
+			want: map[stream.Topic][]string{
 				"NodeDrain": []string{
 					"*",
 					"3caace09-f1f4-4d23-b37a-9ab5eb75069d",
@@ -59,7 +60,7 @@ func TestEventStream_QueryParse(t *testing.T) {
 		{
 			desc:  "multiple topics",
 			query: "?topic=NodeRegister:*&topic=NodeDrain:3caace09-f1f4-4d23-b37a-9ab5eb75069d",
-			want: map[string][]string{
+			want: map[stream.Topic][]string{
 				"NodeDrain": []string{
 					"3caace09-f1f4-4d23-b37a-9ab5eb75069d",
 				},
