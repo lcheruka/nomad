@@ -52,6 +52,7 @@ func (s *HTTPServer) EventStream(resp http.ResponseWriter, req *http.Request) (i
 	}
 	// TODO plaintext or json
 	resp.Header().Set("Content-Type", "application/json")
+	resp.Header().Set("Cache-Control", "no-cache")
 
 	s.parse(resp, req, &args.QueryOptions.Region, &args.QueryOptions)
 

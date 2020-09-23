@@ -2,14 +2,58 @@ package agent
 
 import (
 	"fmt"
+	"net/http"
 	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/hashicorp/nomad/nomad/stream"
+	"github.com/hashicorp/nomad/testutil"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
+func TestEventStream(t *testing.T) {
+	t.Parallel()
+
+	httpTest(t, nil, func(s *TestAgent) {
+		req, err := http.NewRequest("GET", "/v1/events", nil)
+		require.Nil(t, err)
+		resp := newClosableRecorder()
+		defer resp.Close()
+
+		go func() {
+			_, err = s.Server.EventStream(resp, req)
+			assert.NoError(t, err)
+		}()
+
+		// send the same log until monitor sink is set up
+		maxLogAttempts := 10
+		tried := 0
+		testutil.WaitForResult(func() (bool, error) {
+			if tried < maxLogAttempts {
+				pub, err := s.Agent.server.State().EventPublisher()
+				require.NoError(t, err)
+				pub.Publish(100, []stream.Event{})
+				tried++
+			}
+
+			got := resp.Body.String()
+			want := `"FileEvent":"stream"`
+			if strings.Contains(got, want) {
+				return true, nil
+			}
+
+			return false, fmt.Errorf("missing expected frame, got: %v, want: %v", got, want)
+		}, func(err error) {
+			require.Fail(t, err.Error())
+		})
+	})
+}
+
 func TestEventStream_QueryParse(t *testing.T) {
+	t.Parallel()
+
 	cases := []struct {
 		desc    string
 		query   string
