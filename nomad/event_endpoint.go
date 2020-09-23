@@ -21,7 +21,6 @@ type Event struct {
 
 func (e *Event) register() {
 	e.srv.streamingRpcs.Register("Event.Stream", e.stream)
-
 }
 
 func (e *Event) stream(conn io.ReadWriteCloser) {
@@ -68,6 +67,7 @@ func (e *Event) stream(conn io.ReadWriteCloser) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	// TODO(drew) handle follow / no follow
 	subscription, err := publisher.Subscribe(subReq)
 	if err != nil {
 		handleStreamResultError(err, helper.Int64ToPtr(500), encoder)
@@ -96,7 +96,8 @@ func (e *Event) stream(conn io.ReadWriteCloser) {
 		}
 	}()
 
-	initialOffset := int64(args.Index)
+	// TODO should this be args index or 0
+	initialOffset := int64(0)
 	go func() {
 		defer framer.Destroy()
 	LOOP:
